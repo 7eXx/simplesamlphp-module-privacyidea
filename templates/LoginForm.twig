@@ -1,0 +1,275 @@
+{% set pagetitle = '2 factor authentication'|trans %}
+
+{% extends "@core/base.twig" %}
+
+{% block head %}
+  <link rel="stylesheet" href="/{{baseurlpath}}module.php/privacyidea/css/loginform.css" media="screen" />
+{% endblock %}
+
+{% block content %}
+  {% if authProcFilterScenario | default(false) %}
+    {% if username | default(true) %}
+      {% set username = null %}
+    {% endif %}
+  {% else %}
+    {% set authProcFilterScenario = 0 %}
+  {% endif %}
+
+  {% if otpFieldHint | default(false) %}
+    {% set otpHint = otpFieldHint %}
+  {% else %}
+    {% set otpHint = 'OTP' %}
+  {% endif %}
+
+  {% if passFieldHint | default(false) %}
+    {% set passHint = passFieldHint %}
+  {% else %}
+    {% set passHint = 'Password' %}
+  {% endif %}
+
+  <!-- fix this line -->
+  {% set header = 'Authenticate against privacyIDEA' %}
+
+  {% if errorCode %}
+    <div class="error-dialog">
+      <img src="/{{ baseurlpath }}resources/icons/experience/gtk-dialog-error.48x48.png"
+             class="float-l erroricon" alt="gtk-dialog-error"/>
+      <h2>
+        {{ 'Error' | trans }}
+      </h2>
+      <p>
+        <strong>
+          Error {{ errorCode }}: {{ errorMessage }}
+        </strong>
+      </p>
+    </div>
+  {% endif %}
+
+  <div>
+    <div class="login">
+      <div class="loginlogo"></div>
+      {% if authProcFilterScenario %}
+        <h2>{{ 'Please enter your One Time Password' | trans }}</h2>
+      {% elseif step < 2 %}
+        <h2>{{ 'Please enter your Username and your Password' | trans }}</h2>
+      {% endif %}
+
+      <form action="FormReceiver.php" method="POST" id="piLoginForm" name="piLoginForm" class="loginForm">
+        <div class="form-panel first valid" id="gaia_firstform">
+          <div class="slide-out ">
+            <div class="input-wrapper focused">
+              <div class="identifier-shown">
+                {% if (mode | default(null)) == 'otp' and (imageOTP | default(null))!= null %}
+                  <br>
+                  <img class="images" alt="challenge_img" src="{{ imageOTP }}">
+                  <br>
+                  <br>
+                {% elseif (mode | default(null)) == 'push' and (imagePush | default(null)) != null %}
+                  <br>
+                  <img class="images" alt="challenge_img" src="{{ imagePush }}">
+                  <br>
+                  <br>
+                {% elseif (mode | default(null)) == 'u2f' and (imageU2F | default(null)) != null %}
+                  <br>
+                  <img class="images" alt="challenge_img" src="{{ imageU2F }}">
+                  <br>
+                  <br>
+                {% elseif (mode | default(null)) == 'webauthn' and (imageWebauthn | default(null)) != null %}
+                  <br>
+                  <img class="images" alt="challenge_img" src="{{ imageWebauthn }}">
+                  <br>
+                  <br>
+                {% endif %}
+
+                <!-- Show the messages -->
+                <strong id="message">{{ message | default("") }}</strong>
+                <br>
+
+                {% if forceUsername | default(false) %}
+                  <h3>{{ username }}</h3>
+                  <input type="hidden" id="username" name="username" value="{{ username }}">
+                {% else %}
+                  <label for="username" class="sr-only">
+                    {{ Username | trans }}
+                  </label>
+                  <input type="text" id="username" tabindex="1" name="username" autofocus
+                          value="{{ username }}" placeholder="{{ 'Username' | trans }}" />
+                  <br>
+                {% endif %}
+
+                <!-- Remember username in authproc -->
+                {% if authProcFilterScenario %}
+                  {% if (rememberUsernameEnabled | default(false)) or  (rememberMeEnabled | default(false)) %}
+                    {% set rowspan = 1 %}
+                  {% elseif (organizations | default(false)) %}
+                    {% set rowspan = 3 %}
+                  {% else %}
+                    {% set rowspan = 2 %}
+                  {% endif %}
+
+                  {% if (rememberUsernameEnabled | default(false)) or  (rememberMeEnabled | default(false)) %}
+                    {% if rememberUsernameEnabled | default(false) %}
+                      <input type="checkbox" id="rememberUsername" tabindex="5" 
+                              name="rememberUsername" value="Yes" 
+                        {{ rememberUsernameChecked | default(false) ? 'checked' : '' }} />
+                      {{ 'Remember my username' | trans }}
+                    {% endif %}
+                    {% if rememberMeEnabled | default(false) %}
+                      <input type="checkbox" id="rememberMe" tabindex="6" 
+                              name="rememberMe" value="Yes" 
+                        {{ rememberMeChecked | default(false) ? 'checked' : '' }}
+                        {{ 'Remember me' | trans }}
+                    {% endif %}
+                  {% endif %}
+                {% endif %}
+
+                <!-- Pass and OTP fields -->
+                <label for="password" class="sr-only">
+                    {{ 'Password' | trans }}
+                </label>
+                <input id="password" name="password" tabindex="2" type="password" value="" 
+                        class="text" placeholder="{{ passHint | trans }}"/>
+                <br>
+
+                <label for="otp" class="sr-only">
+                    {{ 'OTP' | trans }}
+                </label>
+                <input id="otp" name="otp" tabindex="3" type="password" value="" 
+                        class="text" placeholder="{{ otpHint | trans }}">
+                <br>
+
+                <input id="submitButton" tabindex="7" class="rc-button rc-button-submit" type="submit"
+                        name="Submit" value="{{ 'Login' | trans }}"/>
+                <br><br>
+
+                <!-- Undefined index is suppressed and the default is used for these values -->
+                <input id="mode" type="hidden" name="mode"
+                        value="{{ mode | default(false) ?: 'otp' }}" />
+                
+                <input id="pushAvailable" type="hidden" name="pushAvailable"
+                        value="{{ pushAvailable | default(false) ?: '0' }}"/>
+                
+                <input id="otpAvailable" type="hidden" name="otpAvailable"
+                        value="{{ otpAvailable | default(false) ?: '1' }}" />
+
+                <input id="u2fSignRequest" type="hidden" name="u2fSignRequest"
+                        value="{{ u2fSignRequest | default(false) ?: '' }}" />
+
+                <input id="modeChanged" type="hidden" name="modeChanged" value="0"/>
+                <input id="step" type="hidden" name="step"
+                        value="{{ step | default(false) ?: 2 }}" />
+
+                <input id="webAuthnSignResponse" type="hidden" name="webAuthnSignResponse" value=""/>
+                <input id="u2fSignResponse" type="hidden" name="u2fSignResponse" value=""/>
+                <input id="origin" type="hidden" name="origin" value=""/>
+                <input id="loadCounter" type="hidden" name="loadCounter"
+                        value="{{ loadCounter | default(false) ?: 1 }}"/>
+                  
+                <!-- Additional input to persist the message and images -->
+                <input type="hidden" name="message"
+                        value="{{ message | default(false) ?: '' }}"/>
+                <input type="hidden" name="imageOTP"
+                        value="{{ imageOTP | default(false) ?: '' }}"/>
+                <input type="hidden" name="imagePush"
+                        value="{{ imagePush | default(false) ?: '' }}"/>
+                <input type="hidden" name="imageU2F"
+                        value="{{ imageU2F | default(false) ?: '' }}"/>
+                <input type="hidden" name="imageWebauthn"
+                        value="{{ imageWebauthn | default(false) ?: '' }}"/>
+                
+                <!-- If enrollToken load QR Code -->
+                {% if tokenQR is defined %}
+                  {{ 'Scan this QR code with an app like Google Authenticator or privacyIDEA Authenticator and enter the displayed code below.' | trans }}
+                  <br><br>
+                  <div class="tokenQR">
+                      <img src="{{ tokenQR }}" />
+                  </div>
+                {% endif %}
+              </div>
+
+              {% if organizations is defined %}
+                <div class="identifier-shown">
+                  <label for="organization">
+                    {{ 'Organization' | trans }}
+                  </label>
+                  <select id="organization" name="organization" tabindex="4">
+                    {% if selectedOrg is defined %}
+                      {% set selectedOrg = value %}
+                    {% else %}
+                      {% set selectedOrg = NULL %}
+                    {% endif %}
+                    {% for orgId, orgDesc in organizations %}
+                      <option {{ orgId == selectedOrg ? 'selected' : '' }} value="{{ orgId }}">
+                        {{ orgDesc }}
+                      </option>
+                    {% endfor %}
+                  </select>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div id="AlternateLoginOptions" class="groupMargin">
+          <h3>
+            <label>
+              {{ 'Alternate login options:' | trans }}
+            </label>
+          </h3>
+          <br>
+          <!-- Alternate Login Options-->
+          <input id="useWebAuthnButton" name="useWebAuthnButton" type="button" value="WebAuthn"/>
+          <input id="usePushButton" name="usePushButton" type="button" value="Push"/>
+          <input id="useOTPButton" name="useOTPButton" type="button" value="OTP"/>
+          <input id="useU2FButton" name="useU2FButton" type="button" value="U2F"/>
+        </div>
+        <br>
+      </form>
+
+      {% if LogoutURL is defined %}
+        <p>
+          <a href="{{ LogoutURL }}">
+            {{ 'Logout' | trans }}
+          </a>
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if links | default(false) %}
+    <ul class="links">
+      {% for link in links %}
+        <li>
+          <a href="{{ link.href }}">
+            {{ link.text }}
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <script src="/{{baseurlpath}}module.php/privacyidea/js/pi-webauthn.js">
+  </script>
+
+  <script src="/{{baseurlpath}}module.php/privacyidea/js/u2f-api.js">
+  </script>
+
+  <meta id="privacyidea-step" name="privacyidea-step" content="{{ step }}">
+
+  <meta id="privacyidea-separate-otp" name="privacyidea-separate-otp" 
+        content="{{ (authenticationFlow is defined) and (authenticationFlow == 'separateOTP') ? true : false }}">
+
+  <meta id="privacyidea-hide-pass-field" name="privacyidea-hide-pass-field" 
+        content="{{ (authenticationFlow is defined) and authenticationFlow == 'triggerChallenge' ? true : false }}">
+  
+  <meta id="privacyidea-translations" name="privacyidea-translations" content="{}">
+
+  <meta id="privacyidea-hide-alternate" name="privacyidea-hide-alternate" 
+        content="{{ (pushAvailable is defined )
+          and (pushAvailable == false)
+          and ((u2fSignRequest is defined) and (u2fSignRequest is empty))
+          and ((webAuthnSignRequest is defined) and (webAuthnSignRequest is empty)) ? true : false }}">
+
+  <script src="/{{baseurlpath}}module.php/privacyidea/js/loginform.js">
+  </script>
+{% endblock %}
+
